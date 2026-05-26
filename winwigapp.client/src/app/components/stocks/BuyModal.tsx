@@ -1,24 +1,25 @@
 import { useState } from "react";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
-import { Stock } from "../../data/mockData";
+import { StockResponse } from "../../utils/stocksApi";
 import { toast } from "sonner";
+import { useUser } from "../../context/UserContext";
 
 interface BuyModalProps {
-  stock: Stock;
+  stock: StockResponse;
   onClose: () => void;
 }
 
 export function BuyModal({ stock, onClose }: BuyModalProps) {
+  const { user, updateBalance } = useUser();
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy");
   const [quantity, setQuantity] = useState<string>("1");
   const [stopLoss, setStopLoss] = useState<string>("");
   const [useStopLoss, setUseStopLoss] = useState(false);
 
   const totalValue = parseFloat(quantity || "0") * stock.currentPrice;
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const balance = user.balance || 0;
+  const balance = user?.balance || 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const qty = parseFloat(quantity);
@@ -44,77 +45,47 @@ export function BuyModal({ stock, onClose }: BuyModalProps) {
       }
     }
 
-    // TODO: Replace with API call to ASP.NET backend
-    // const response = await fetch('/api/transactions', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     'Authorization': `Bearer ${localStorage.getItem('token')}`
-    //   },
-    //   body: JSON.stringify({
-    //     symbol: stock.symbol,
-    //     quantity: qty,
-    //     price: stock.currentPrice,
-    //     type: transactionType,
-    //     stopLoss: useStopLoss ? parseFloat(stopLoss) : null
-    //   })
-    // });
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("Nie jesteś zalogowany");
+        return;
+      }
 
-    const newBalance = transactionType === "buy"
-      ? balance - totalValue
-      : balance + totalValue;
-
-    user.balance = newBalance;
-    localStorage.setItem("user", JSON.stringify(user));
-
-    const portfolio = JSON.parse(localStorage.getItem("portfolio") || "[]");
-    const existingPosition = portfolio.find((p: any) => p.symbol === stock.symbol);
-
-    if (transactionType === "buy") {
-      if (existingPosition) {
-        existingPosition.quantity += qty;
-        existingPosition.avgPrice =
-          (existingPosition.avgPrice * (existingPosition.quantity - qty) + stock.currentPrice * qty) /
-          existingPosition.quantity;
-      } else {
-        portfolio.push({
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
           symbol: stock.symbol,
-          name: stock.name,
           quantity: qty,
-          avgPrice: stock.currentPrice,
-          stopLoss: useStopLoss ? parseFloat(stopLoss) : null,
-        });
+          price: stock.currentPrice,
+          type: transactionType,
+          stopLoss: useStopLoss ? parseFloat(stopLoss) : null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Transakcja nie powiodła się');
       }
-    } else {
-      if (existingPosition) {
-        existingPosition.quantity -= qty;
-        if (existingPosition.quantity <= 0) {
-          const index = portfolio.indexOf(existingPosition);
-          portfolio.splice(index, 1);
-        }
-      }
+
+      const data = await response.json();
+
+      // Update balance in context
+      updateBalance(data.newBalance);
+
+      toast.success(
+        `${transactionType === "buy" ? "Kupiono" : "Sprzedano"} ${qty} akcji ${stock.symbol}`
+      );
+      onClose();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Błąd podczas transakcji';
+      toast.error(errorMessage);
+      console.error('Transaction error:', error);
     }
-
-    localStorage.setItem("portfolio", JSON.stringify(portfolio));
-
-    const transactions = JSON.parse(localStorage.getItem("transactions") || "[]");
-    transactions.unshift({
-      id: Date.now().toString(),
-      symbol: stock.symbol,
-      name: stock.name,
-      type: transactionType,
-      quantity: qty,
-      price: stock.currentPrice,
-      total: totalValue,
-      stopLoss: useStopLoss ? parseFloat(stopLoss) : null,
-      timestamp: new Date().toISOString(),
-    });
-    localStorage.setItem("transactions", JSON.stringify(transactions));
-
-    toast.success(
-      `${transactionType === "buy" ? "Kupiono" : "Sprzedano"} ${qty} akcji ${stock.symbol}`
-    );
-    onClose();
   };
 
   return (
@@ -131,6 +102,14 @@ export function BuyModal({ stock, onClose }: BuyModalProps) {
             <X className="w-6 h-6" />
           </button>
         </div>
+
+        {balance === 0 && transactionType === "buy" && (
+          <div className="bg-yellow-500/10 border-t border-yellow-500/50 px-6 py-4">
+            <div className="text-sm text-yellow-500">
+              ⚠️ Aby kupować akcje, musisz najpierw wpłacić pieniądze na swoje konto.
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="bg-gray-800 rounded-lg p-4">
@@ -149,11 +128,15 @@ export function BuyModal({ stock, onClose }: BuyModalProps) {
             <button
               type="button"
               onClick={() => setTransactionType("buy")}
+              disabled={balance === 0}
               className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-colors ${
-                transactionType === "buy"
+                balance === 0
+                  ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-50"
+                  : transactionType === "buy"
                   ? "bg-emerald-500 text-white"
                   : "bg-gray-800 text-gray-400 hover:text-white"
               }`}
+              title={balance === 0 ? "Wpłać pieniądze aby kupować" : ""}
             >
               <TrendingUp className="w-5 h-5" />
               Kup
@@ -240,11 +223,15 @@ export function BuyModal({ stock, onClose }: BuyModalProps) {
 
           <button
             type="submit"
+            disabled={transactionType === "buy" && balance <= 0}
             className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
               transactionType === "buy"
-                ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                ? balance > 0
+                  ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                  : "bg-gray-600 text-gray-400 cursor-not-allowed opacity-50"
                 : "bg-red-500 hover:bg-red-600 text-white"
             }`}
+            title={transactionType === "buy" && balance <= 0 ? "Musisz wpłacić pieniądze aby kupować akcje" : ""}
           >
             Potwierdź {transactionType === "buy" ? "zakup" : "sprzedaż"}
           </button>

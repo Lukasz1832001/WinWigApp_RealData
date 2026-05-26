@@ -36,7 +36,7 @@ public class AuthService : IAuthService
             LastName = request.LastName,
             Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-            Balance = 100000m, // Initial balance
+            Balance = 0m, // Start with zero balance, user must deposit money first
             CreatedAt = DateTime.UtcNow
         };
 

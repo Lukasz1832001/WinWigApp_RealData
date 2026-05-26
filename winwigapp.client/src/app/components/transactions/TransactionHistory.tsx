@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { History, TrendingUp, TrendingDown, Download } from "lucide-react";
+import { toast } from "sonner";
 
 interface Transaction {
   id: string;
@@ -16,14 +17,55 @@ interface Transaction {
 export function TransactionHistory() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState<"all" | "buy" | "sell">("all");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadTransactions();
+
+    // Listen for stop loss updates from Portfolio component
+    const handleStopLossUpdate = () => {
+      loadTransactions();
+    };
+
+    window.addEventListener('stopLossUpdated', handleStopLossUpdate);
+
+    return () => {
+      window.removeEventListener('stopLossUpdated', handleStopLossUpdate);
+    };
   }, []);
 
-  const loadTransactions = () => {
-    const data = JSON.parse(localStorage.getItem("transactions") || "[]");
-    setTransactions(data);
+  const getAuthToken = () => {
+    return localStorage.getItem("token");
+  };
+
+  const loadTransactions = async () => {
+    try {
+      setLoading(true);
+      const token = getAuthToken();
+
+      if (!token) {
+        toast.error("Nie jesteś zalogowany");
+        return;
+      }
+
+      const response = await fetch("/api/transactions", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Nie udało się pobrać transakcji");
+      }
+
+      const data: Transaction[] = await response.json();
+      setTransactions(data);
+    } catch (error) {
+      console.error("Error loading transactions:", error);
+      toast.error("Błąd podczas ładowania historii transakcji");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredTransactions = transactions.filter((t) =>
@@ -70,37 +112,47 @@ export function TransactionHistory() {
         <div className="flex gap-3 mb-6">
           <button
             onClick={() => setFilter("all")}
+            disabled={loading}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               filter === "all"
                 ? "bg-emerald-500 text-white"
                 : "bg-gray-800 text-gray-400 hover:text-white"
-            }`}
+            } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             Wszystkie
           </button>
           <button
             onClick={() => setFilter("buy")}
+            disabled={loading}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               filter === "buy"
                 ? "bg-emerald-500 text-white"
                 : "bg-gray-800 text-gray-400 hover:text-white"
-            }`}
+            } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             Kupno
           </button>
           <button
             onClick={() => setFilter("sell")}
+            disabled={loading}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               filter === "sell"
                 ? "bg-red-500 text-white"
                 : "bg-gray-800 text-gray-400 hover:text-white"
-            }`}
+            } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             Sprzedaż
           </button>
         </div>
 
-        {filteredTransactions.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 mb-4">
+              <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <p className="text-gray-400">Ładowanie transakcji...</p>
+          </div>
+        ) : filteredTransactions.length === 0 ? (
           <div className="text-center py-12">
             <History className="w-16 h-16 text-gray-700 mx-auto mb-4" />
             <p className="text-gray-400">Brak transakcji do wyświetlenia</p>

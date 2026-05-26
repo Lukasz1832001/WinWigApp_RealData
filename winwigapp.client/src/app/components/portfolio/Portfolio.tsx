@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { getStocks, StockResponse } from "../../utils/stocksApi";
 import {
@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useUser } from "../../context/UserContext";
 
 interface PortfolioPosition {
   symbol: string;
@@ -19,34 +20,83 @@ interface PortfolioPosition {
   stopLoss: number | null;
 }
 
+interface PortfolioResponse {
+  items: PortfolioPosition[];
+  totalValue: number;
+  totalInvested: number;
+  totalProfit: number;
+  totalProfitPercent: number;
+}
+
 export function Portfolio() {
-  const [portfolio, setPortfolio] = useState<PortfolioPosition[]>([]);
+  const { user } = useUser();
+  const [portfolio, setPortfolio] = useState<PortfolioResponse>({
+    items: [],
+    totalValue: 0,
+    totalInvested: 0,
+    totalProfit: 0,
+    totalProfitPercent: 0,
+  });
   const [stocks, setStocks] = useState<StockResponse[]>([]);
   const [editingStopLoss, setEditingStopLoss] = useState<string | null>(null);
   const [newStopLoss, setNewStopLoss] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [updatingStopLoss, setUpdatingStopLoss] = useState<string | null>(null);
 
   useEffect(() => {
     loadPortfolio();
     loadStocks();
+
+    // Auto-refresh portfolio every 30 seconds
+    const interval = setInterval(() => {
+      loadPortfolio();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  const getAuthToken = () => {
+    return localStorage.getItem("token");
+  };
 
   const loadStocks = async () => {
     try {
-      setLoading(true);
       const data = await getStocks();
       setStocks(data);
     } catch (error) {
       console.error("Error loading stocks:", error);
       toast.error("Nie udało się pobrać danych akcji");
-    } finally {
-      setLoading(false);
     }
   };
 
-  const loadPortfolio = () => {
-    const data = JSON.parse(localStorage.getItem("portfolio") || "[]");
-    setPortfolio(data);
+  const loadPortfolio = async () => {
+    try {
+      setLoading(true);
+      const token = getAuthToken();
+
+      if (!token) {
+        toast.error("Nie jesteś zalogowany");
+        return;
+      }
+
+      const response = await fetch("/api/portfolio", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Nie udało się pobrać portfela");
+      }
+
+      const data: PortfolioResponse = await response.json();
+      setPortfolio(data);
+    } catch (error) {
+      console.error("Error loading portfolio:", error);
+      toast.error("Błąd podczas ładowania portfela");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const calculatePositionValue = (position: PortfolioPosition) => {
@@ -65,54 +115,96 @@ export function Portfolio() {
     return { value, percent };
   };
 
-  const getTotalPortfolioValue = () => {
-    return portfolio.reduce((sum, position) => sum + calculatePositionValue(position), 0);
-  };
-
-  const getTotalInvestedValue = () => {
-    return portfolio.reduce((sum, position) => sum + position.avgPrice * position.quantity, 0);
-  };
-
-  const getTotalProfit = () => {
-    return getTotalPortfolioValue() - getTotalInvestedValue();
-  };
-
-  const getTotalProfitPercent = () => {
-    const invested = getTotalInvestedValue();
-    if (invested === 0) return 0;
-    return (getTotalProfit() / invested) * 100;
-  };
-
-  const handleUpdateStopLoss = (symbol: string) => {
+  const handleUpdateStopLoss = async (symbol: string) => {
     const stopLossValue = parseFloat(newStopLoss);
     if (isNaN(stopLossValue) || stopLossValue <= 0) {
       toast.error("Podaj prawidłową wartość stop loss");
       return;
     }
 
-    const updatedPortfolio = portfolio.map((p) =>
-      p.symbol === symbol ? { ...p, stopLoss: stopLossValue } : p
-    );
-    setPortfolio(updatedPortfolio);
-    localStorage.setItem("portfolio", JSON.stringify(updatedPortfolio));
-    setEditingStopLoss(null);
-    setNewStopLoss("");
-    toast.success("Zaktualizowano stop loss");
+    try {
+      setUpdatingStopLoss(symbol);
+      const token = getAuthToken();
+      if (!token) {
+        toast.error("Nie jesteś zalogowany");
+        return;
+      }
+
+      const response = await fetch(`/api/portfolio/${symbol}/stoploss`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ stopLoss: stopLossValue })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Nie udało się zaktualizować stop loss');
+      }
+
+      toast.success("Zaktualizowano stop loss");
+
+      // Ensure portfolio is refreshed before closing edit mode
+      await loadPortfolio();
+
+      // Notify other components (e.g., TransactionHistory) to refresh
+      window.dispatchEvent(new Event('stopLossUpdated'));
+
+      // Close edit mode only after portfolio is reloaded
+      setEditingStopLoss(null);
+      setNewStopLoss("");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Błąd podczas aktualizacji stop loss';
+      toast.error(errorMessage);
+      console.error('Error updating stop loss:', error);
+    } finally {
+      setUpdatingStopLoss(null);
+    }
   };
 
-  const handleRemoveStopLoss = (symbol: string) => {
-    const updatedPortfolio = portfolio.map((p) =>
-      p.symbol === symbol ? { ...p, stopLoss: null } : p
-    );
-    setPortfolio(updatedPortfolio);
-    localStorage.setItem("portfolio", JSON.stringify(updatedPortfolio));
-    toast.success("Usunięto stop loss");
+  const handleRemoveStopLoss = async (symbol: string) => {
+    try {
+      setUpdatingStopLoss(symbol);
+      const token = getAuthToken();
+      if (!token) {
+        toast.error("Nie jesteś zalogowany");
+        return;
+      }
+
+      const response = await fetch(`/api/portfolio/${symbol}/stoploss`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Nie udało się usunąć stop loss');
+      }
+
+      toast.success("Usunięto stop loss");
+
+      // Ensure portfolio is refreshed before finishing
+      await loadPortfolio();
+
+      // Notify other components (e.g., TransactionHistory) to refresh
+      window.dispatchEvent(new Event('stopLossUpdated'));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Błąd podczas usuwania stop loss';
+      toast.error(errorMessage);
+      console.error('Error removing stop loss:', error);
+    } finally {
+      setUpdatingStopLoss(null);
+    }
   };
 
-  const totalValue = getTotalPortfolioValue();
-  const totalInvested = getTotalInvestedValue();
-  const totalProfit = getTotalProfit();
-  const totalProfitPercent = getTotalProfitPercent();
+  const totalValue = portfolio.totalValue;
+  const totalInvested = portfolio.totalInvested;
+  const totalProfit = portfolio.totalProfit;
+  const totalProfitPercent = portfolio.totalProfitPercent;
 
   return (
     <div className="space-y-6">
@@ -175,7 +267,7 @@ export function Portfolio() {
           Pozycje
         </h2>
 
-        {portfolio.length === 0 ? (
+        {portfolio.items.length === 0 ? (
           <div className="text-center py-12">
             <Briefcase className="w-16 h-16 text-gray-700 mx-auto mb-4" />
             <p className="text-gray-400 mb-4">Twój portfel jest pusty</p>
@@ -201,7 +293,7 @@ export function Portfolio() {
                 </tr>
               </thead>
               <tbody>
-                {portfolio.map((position) => {
+                {portfolio.items.map((position) => {
                   const stock = stocks.find((s) => s.symbol === position.symbol);
                   if (!stock) return null;
                   const profit = calculatePositionProfit(position);
@@ -267,16 +359,19 @@ export function Portfolio() {
                               placeholder="PLN"
                               className="w-24 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm"
                               autoFocus
+                              disabled={updatingStopLoss === position.symbol}
                             />
                             <button
                               onClick={() => handleUpdateStopLoss(position.symbol)}
-                              className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-sm"
+                              disabled={updatingStopLoss === position.symbol}
+                              className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              ✓
+                              {updatingStopLoss === position.symbol ? "..." : "✓"}
                             </button>
                             <button
                               onClick={() => setEditingStopLoss(null)}
-                              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm"
+                              disabled={updatingStopLoss === position.symbol}
+                              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               ✕
                             </button>
@@ -292,13 +387,15 @@ export function Portfolio() {
                                 setEditingStopLoss(position.symbol);
                                 setNewStopLoss(position.stopLoss!.toString());
                               }}
-                              className="p-1 text-gray-400 hover:text-emerald-500"
+                              disabled={updatingStopLoss === position.symbol}
+                              className="p-1 text-gray-400 hover:text-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleRemoveStopLoss(position.symbol)}
-                              className="p-1 text-gray-400 hover:text-red-500"
+                              disabled={updatingStopLoss === position.symbol}
+                              className="p-1 text-gray-400 hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
