@@ -203,7 +203,7 @@ export function Register() {
         </div>
 
         <p className="text-center text-gray-500 text-sm mt-8">
-          WIN_WIG Trading Platform © 2026
+          WIN_WIG Trading Platform 2026
         </p>
       </div>
     </div>

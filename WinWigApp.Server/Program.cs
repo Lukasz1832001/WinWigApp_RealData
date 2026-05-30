@@ -6,8 +6,6 @@ using WinWigApp.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 // Configure SQLite database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? "Data Source=WinWigApp.db";
@@ -30,7 +28,6 @@ builder.Services.AddScoped<IWalletService, WalletService>();
 var jwtSecret = builder.Configuration["Jwt:Secret"];
 if (string.IsNullOrEmpty(jwtSecret))
 {
-    // Generate a default secret for development if not configured
     jwtSecret = "your-secret-key-change-this-in-production-12345678901234567890";
 }
 

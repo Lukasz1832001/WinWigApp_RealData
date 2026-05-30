@@ -9,6 +9,9 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="src\app\data\" />
+    <TypeScriptConfiguration Remove="src\app\data\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="src\app\data\**" />
   </ItemGroup>
 </Project>

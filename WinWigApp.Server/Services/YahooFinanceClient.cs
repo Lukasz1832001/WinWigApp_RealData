@@ -3,16 +3,6 @@ using WinWigApp.Server.DTOs;
 
 namespace WinWigApp.Server.Services;
 
-/// <summary>
-/// Klient HTTP dla Yahoo Finance API (nieoficjalny, darmowy).
-/// Symbole GPW mają sufiks .WA (np. PKO.WA, KGHM.WA).
-/// </summary>
-public interface IYahooFinanceClient
-{
-    Task<YahooQuoteResult?> GetQuoteAsync(string symbol);
-    Task<List<CandlestickData>> GetHistoricalDataAsync(string symbol, int days);
-}
-
 public class YahooFinanceClient : IYahooFinanceClient
 {
     private readonly HttpClient _http;

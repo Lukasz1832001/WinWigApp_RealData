@@ -71,9 +71,23 @@ public class TransactionController : ControllerBase
 
             decimal totalValue = request.Quantity * request.Price;
 
+            // Get portfolio item first (needed for both buy and sell)
+            var portfolioItem = _context.Portfolios
+                .FirstOrDefault(p => p.UserId == userId && p.Symbol.ToUpper() == symbolNormalized.ToUpper());
+
             // Check balance for buy transactions
             if (request.Type == "buy" && user.Balance < totalValue)
                 return BadRequest(new { message = "Niewystarczające środki na koncie" });
+
+            // Check portfolio for sell transactions
+            if (request.Type == "sell")
+            {
+                if (portfolioItem == null)
+                    return BadRequest(new { message = "Nie posiadasz tej akcji w portfelu" });
+
+                if (portfolioItem.Quantity < request.Quantity)
+                    return BadRequest(new { message = $"Posiadasz tylko {portfolioItem.Quantity} akcji tej spółki, a chcesz sprzedać {request.Quantity}" });
+            }
 
             // Create transaction
             var transaction = new Transaction
@@ -101,8 +115,6 @@ public class TransactionController : ControllerBase
             }
 
             // Update portfolio
-            var portfolioItem = _context.Portfolios
-                .FirstOrDefault(p => p.UserId == userId && p.Symbol.ToUpper() == symbolNormalized.ToUpper());
 
             if (request.Type == "buy")
             {

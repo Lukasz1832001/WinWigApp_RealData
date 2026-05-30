@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
 import { StockResponse } from "../../utils/stocksApi";
 import { toast } from "sonner";
@@ -15,6 +15,44 @@ export function BuyModal({ stock, onClose }: BuyModalProps) {
   const [quantity, setQuantity] = useState<string>("1");
   const [stopLoss, setStopLoss] = useState<string>("");
   const [useStopLoss, setUseStopLoss] = useState(false);
+  const [availableQuantity, setAvailableQuantity] = useState(0);
+  const [loadingPortfolio, setLoadingPortfolio] = useState(true);
+
+  useEffect(() => {
+    loadPortfolioData();
+  }, [stock.symbol]);
+
+  const loadPortfolioData = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setAvailableQuantity(0);
+        setLoadingPortfolio(false);
+        return;
+      }
+
+      const response = await fetch("/api/portfolio", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        setAvailableQuantity(0);
+      } else {
+        const data = await response.json();
+        const position = data.items?.find(
+          (item: any) => item.symbol.toUpperCase() === stock.symbol.toUpperCase()
+        );
+        setAvailableQuantity(position?.quantity || 0);
+      }
+    } catch (error) {
+      console.error("Error loading portfolio:", error);
+      setAvailableQuantity(0);
+    } finally {
+      setLoadingPortfolio(false);
+    }
+  };
 
   const totalValue = parseFloat(quantity || "0") * stock.currentPrice;
   const balance = user?.balance || 0;
@@ -30,6 +68,16 @@ export function BuyModal({ stock, onClose }: BuyModalProps) {
 
     if (transactionType === "buy" && totalValue > balance) {
       toast.error("Niewystarczające środki na koncie");
+      return;
+    }
+
+    if (transactionType === "sell" && availableQuantity === 0) {
+      toast.error("Nie posiadasz tej akcji w portfelu");
+      return;
+    }
+
+    if (transactionType === "sell" && qty > availableQuantity) {
+      toast.error(`Posiadasz tylko ${availableQuantity} akcji tej spółki, a chcesz sprzedać ${qty}`);
       return;
     }
 
@@ -144,11 +192,15 @@ export function BuyModal({ stock, onClose }: BuyModalProps) {
             <button
               type="button"
               onClick={() => setTransactionType("sell")}
+              disabled={loadingPortfolio || availableQuantity === 0}
               className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-colors ${
-                transactionType === "sell"
+                availableQuantity === 0
+                  ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-50"
+                  : transactionType === "sell"
                   ? "bg-red-500 text-white"
                   : "bg-gray-800 text-gray-400 hover:text-white"
               }`}
+              title={availableQuantity === 0 ? "Nie posiadasz tej akcji w portfelu" : ""}
             >
               <TrendingDown className="w-5 h-5" />
               Sprzedaj
@@ -158,11 +210,17 @@ export function BuyModal({ stock, onClose }: BuyModalProps) {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Ilość akcji
+              {transactionType === "sell" && availableQuantity > 0 && (
+                <span className="text-gray-400 text-xs ml-2">
+                  (Dostępnych: {availableQuantity})
+                </span>
+              )}
             </label>
             <input
               type="number"
               min="1"
               step="1"
+              max={transactionType === "sell" ? availableQuantity : undefined}
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
@@ -196,42 +254,72 @@ export function BuyModal({ stock, onClose }: BuyModalProps) {
 
           <div className="bg-gray-800 rounded-lg p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-400">Wartość transakcji</span>
+              <span className="text-gray-400">{transactionType === "buy" ? "Wartość transakcji" : "Przychód ze sprzedaży"}</span>
               <span className="text-white font-medium">
                 {totalValue.toFixed(2)} PLN
               </span>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-400">Dostępne środki</span>
-              <span className="text-white font-medium">
-                {balance.toFixed(2)} PLN
-              </span>
-            </div>
-            {transactionType === "buy" && (
-              <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-700">
-                <span className="text-gray-400">Saldo po transakcji</span>
-                <span
-                  className={`font-medium ${
-                    balance - totalValue < 0 ? "text-red-500" : "text-emerald-500"
-                  }`}
-                >
-                  {(balance - totalValue).toFixed(2)} PLN
-                </span>
-              </div>
+            {transactionType === "buy" ? (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Dostępne środki</span>
+                  <span className="text-white font-medium">
+                    {balance.toFixed(2)} PLN
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-700">
+                  <span className="text-gray-400">Saldo po transakcji</span>
+                  <span
+                    className={`font-medium ${
+                      balance - totalValue < 0 ? "text-red-500" : "text-emerald-500"
+                    }`}
+                  >
+                    {(balance - totalValue).toFixed(2)} PLN
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Dostępnych akcji</span>
+                  <span className="text-white font-medium">
+                    {availableQuantity}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-700">
+                  <span className="text-gray-400">Saldo po transakcji</span>
+                  <span className="text-emerald-500 font-medium">
+                    {(balance + totalValue).toFixed(2)} PLN
+                  </span>
+                </div>
+              </>
             )}
           </div>
 
           <button
             type="submit"
-            disabled={transactionType === "buy" && balance <= 0}
+            disabled={
+              (transactionType === "buy" && balance <= 0) ||
+              (transactionType === "sell" && (availableQuantity === 0 || loadingPortfolio))
+            }
             className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
               transactionType === "buy"
                 ? balance > 0
                   ? "bg-emerald-500 hover:bg-emerald-600 text-white"
                   : "bg-gray-600 text-gray-400 cursor-not-allowed opacity-50"
-                : "bg-red-500 hover:bg-red-600 text-white"
+                : availableQuantity > 0
+                ? "bg-red-500 hover:bg-red-600 text-white"
+                : "bg-gray-600 text-gray-400 cursor-not-allowed opacity-50"
             }`}
-            title={transactionType === "buy" && balance <= 0 ? "Musisz wpłacić pieniądze aby kupować akcje" : ""}
+            title={
+              transactionType === "buy"
+                ? balance <= 0
+                  ? "Musisz wpłacić pieniądze aby kupować akcje"
+                  : ""
+                : availableQuantity === 0
+                ? "Nie posiadasz tej akcji w portfelu"
+                : ""
+            }
           >
             Potwierdź {transactionType === "buy" ? "zakup" : "sprzedaż"}
           </button>

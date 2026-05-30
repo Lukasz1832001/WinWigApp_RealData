@@ -4,12 +4,6 @@ using WinWigApp.Server.Models;
 
 namespace WinWigApp.Server.Services;
 
-public interface IAuthService
-{
-    Task<AuthResponse> RegisterAsync(RegisterRequest request);
-    Task<AuthResponse> LoginAsync(LoginRequest request);
-}
-
 public class AuthService : IAuthService
 {
     private readonly WinWigDbContext _context;

@@ -3,12 +3,12 @@ import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
-function figmaAssetResolver() {
+function winwigAssetResolver() {
     return {
-        name: 'figma-asset-resolver',
+        name: 'winwig-asset-resolver',
         resolveId(id) {
-            if (id.startsWith('figma:asset/')) {
-                const filename = id.replace('figma:asset/', '')
+            if (id.startsWith('winwig:asset/')) {
+                const filename = id.replace('winwig:asset/', '')
                 return path.resolve(__dirname, 'src/assets', filename)
             }
         },
@@ -17,7 +17,7 @@ function figmaAssetResolver() {
 
 export default defineConfig({
     plugins: [
-        figmaAssetResolver(),
+        winwigAssetResolver(),
         react(),
         tailwindcss(),
     ],
@@ -29,7 +29,7 @@ export default defineConfig({
     server: {
         port: 5173, // Standardowy port Vite
         proxy: {
-            // Przekierowuje zapytania /api na port Twojego backendu ASP.NET
+            // Przekierowuje zapytania /api na port backendu ASP.NET
             '^/api': {
                 target: 'https://localhost:7054',
                 secure: false

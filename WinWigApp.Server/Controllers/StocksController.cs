@@ -17,10 +17,6 @@ public class StocksController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Pobiera listê spó³ek WIG20
-    /// </summary>
-    /// <returns>Lista spó³ek z aktualnym cen¹ i danymi technicznymi</returns>
     [HttpGet]
     public async Task<ActionResult<List<StockResponse>>> GetStocks()
     {

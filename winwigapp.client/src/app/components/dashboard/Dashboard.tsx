@@ -97,7 +97,7 @@ export function Dashboard() {
         <div>
           <h1 className="text-3xl font-bold text-white">Spółki WIG20</h1>
           <p className="text-gray-400 mt-1">
-            Lista wszystkich spółek z indeksu WIG20
+            Lista spółek z indeksu WIG20
           </p>
         </div>
       </div>
@@ -228,9 +228,7 @@ export function Dashboard() {
                     <SortIcon field="volume" />
                   </button>
                 </th>
-                <th className="text-right py-3 px-4 hidden xl:table-cell">
-                  <span className="text-gray-400">P/E</span>
-                </th>
+               
                 <th className="text-right py-3 px-4"></th>
               </tr>
             </thead>
@@ -277,11 +275,7 @@ export function Dashboard() {
                       {stock.volume.toLocaleString("pl-PL")}
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-right hidden xl:table-cell">
-                    <div className="text-gray-400 text-sm">
-                      {stock.peRatio.toFixed(2)}
-                    </div>
-                  </td>
+                  
                   <td className="py-4 px-4 text-right">
                     <Link
                       to={`/stock/${stock.symbol}`}

@@ -2,13 +2,6 @@
 
 namespace WinWigApp.Server.Services;
 
-public interface IStockService
-{
-    Task<List<StockResponse>> GetStocksAsync();
-    Task<List<CandlestickData>> GetCandlestickDataAsync(string symbol, int days);
-    Task<TechnicalIndicatorsResponse> GetTechnicalIndicatorsAsync(string symbol, int days);
-}
-
 public class StockService : IStockService
 {
     // Statyczna lista spółek z YahooFinanceClient.SymbolMap
@@ -40,7 +33,6 @@ public class StockService : IStockService
     private readonly IYahooFinanceClient _yahoo;
     private readonly ILogger<StockService> _logger;
 
-    // Cache in-memory — ogranicza liczbę zapytań do Yahoo przy odświeżaniu listy
     private static readonly SemaphoreSlim _lock = new(1, 1);
     private static List<StockResponse>? _cachedQuotes;
     private static DateTime _cacheExpiry = DateTime.MinValue;
@@ -54,7 +46,6 @@ public class StockService : IStockService
 
     // -------------------------------------------------------------------------
     // GET /api/stocks
-    // -------------------------------------------------------------------------
     public async Task<List<StockResponse>> GetStocksAsync()
     {
         await _lock.WaitAsync();
@@ -63,7 +54,6 @@ public class StockService : IStockService
             if (_cachedQuotes != null && DateTime.UtcNow < _cacheExpiry)
                 return _cachedQuotes;
 
-            // Równoległe pobieranie notowań (max 5 jednocześnie, żeby nie przeciążać Yahoo)
             using var throttle = new SemaphoreSlim(5);
             var tasks = WIG20_META.Select(async meta =>
             {
@@ -84,7 +74,6 @@ public class StockService : IStockService
 
     // -------------------------------------------------------------------------
     // GET /api/stocks/{symbol}/candlestick
-    // -------------------------------------------------------------------------
     public async Task<List<CandlestickData>> GetCandlestickDataAsync(string symbol, int days)
     {
         var candles = await _yahoo.GetHistoricalDataAsync(symbol, days);
@@ -100,10 +89,8 @@ public class StockService : IStockService
 
     // -------------------------------------------------------------------------
     // GET /api/stocks/{symbol}/technical
-    // -------------------------------------------------------------------------
     public async Task<TechnicalIndicatorsResponse> GetTechnicalIndicatorsAsync(string symbol, int days)
     {
-        // Pobieramy więcej świec niż żądane dni, żeby SMA200/EMA26 miały stabilne wartości
         int fetchDays = Math.Max(days + 200, 252);
         var candles = await _yahoo.GetHistoricalDataAsync(symbol, fetchDays);
 
@@ -116,9 +103,6 @@ public class StockService : IStockService
         return CalculateTechnicalIndicators(candles, days);
     }
 
-    // =========================================================================
-    // Pomocnicze — budowanie odpowiedzi
-    // =========================================================================
 
     private async Task<StockResponse> FetchStockResponseAsync(string symbol, string name)
     {
@@ -140,16 +124,14 @@ public class StockService : IStockService
             ClosePrice = quote.ClosePrice,
             Change = quote.Change,
             ChangePercent = quote.ChangePercent,
-            // PeRatio, PbRatio, Roe niedostępne w darmowym Yahoo Finance → 0
             PeRatio = 0,
             PbRatio = 0,
             Roe = 0,
         };
     }
 
-    // =========================================================================
+
     // Wskaźniki techniczne
-    // =========================================================================
 
     private static TechnicalIndicatorsResponse CalculateTechnicalIndicators(
         List<CandlestickData> candles, int requestedDays)
@@ -230,9 +212,7 @@ public class StockService : IStockService
         return ema;
     }
 
-    // =========================================================================
-    // Fallback — dane syntetyczne gdy Yahoo nie odpowiada (weekend, awaria)
-    // =========================================================================
+    // dane syntetyczne gdy Yahoo nie odpowiada (weekend, awaria)
 
     private static List<CandlestickData> GenerateSyntheticCandles(decimal basePrice, int days)
     {
