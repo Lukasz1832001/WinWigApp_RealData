@@ -8,11 +8,13 @@ public class AuthService : IAuthService
 {
     private readonly WinWigDbContext _context;
     private readonly ITokenService _tokenService;
+    private readonly ISeederService _seederService;
 
-    public AuthService(WinWigDbContext context, ITokenService tokenService)
+    public AuthService(WinWigDbContext context, ITokenService tokenService, ISeederService seederService)
     {
         _context = context;
         _tokenService = tokenService;
+        _seederService = seederService;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -36,6 +38,9 @@ public class AuthService : IAuthService
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+
+        // Seed default strategies for new user
+        await _seederService.SeedDefaultStrategiesAsync(user.Id);
 
         var token = _tokenService.GenerateToken(user);
 

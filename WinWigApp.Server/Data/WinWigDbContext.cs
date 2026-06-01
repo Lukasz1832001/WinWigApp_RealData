@@ -10,7 +10,6 @@ public class WinWigDbContext : DbContext
     }
 
     public DbSet<User> Users { get; set; }
-    public DbSet<Stock> Stocks { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Portfolio> Portfolios { get; set; }
     public DbSet<Deposit> Deposits { get; set; }
@@ -30,13 +29,6 @@ public class WinWigDbContext : DbContext
             .HasIndex(u => u.Email)
             .IsUnique();
 
-        // Stock configuration
-        modelBuilder.Entity<Stock>()
-            .HasKey(s => s.Symbol);
-        modelBuilder.Entity<Stock>()
-            .Property(s => s.Symbol)
-            .HasMaxLength(10);
-
         // Transaction configuration
         modelBuilder.Entity<Transaction>()
             .HasKey(t => t.Id);
@@ -45,12 +37,6 @@ public class WinWigDbContext : DbContext
             .WithMany(u => u.Transactions)
             .HasForeignKey(t => t.UserId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Transaction>()
-            .HasOne(t => t.Stock)
-            .WithMany(s => s.Transactions)
-            .HasForeignKey(t => t.Symbol)
-            .HasPrincipalKey(s => s.Symbol)
-            .OnDelete(DeleteBehavior.Restrict);
 
         // Portfolio configuration
         modelBuilder.Entity<Portfolio>()
@@ -60,12 +46,6 @@ public class WinWigDbContext : DbContext
             .WithMany(u => u.Portfolios)
             .HasForeignKey(p => p.UserId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Portfolio>()
-            .HasOne(p => p.Stock)
-            .WithMany(s => s.Portfolios)
-            .HasForeignKey(p => p.Symbol)
-            .HasPrincipalKey(s => s.Symbol)
-            .OnDelete(DeleteBehavior.Restrict);
 
         // Deposit configuration
         modelBuilder.Entity<Deposit>()

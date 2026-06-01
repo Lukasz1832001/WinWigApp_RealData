@@ -49,25 +49,11 @@ public class TransactionController : ControllerBase
             if (request.Price <= 0)
                 return BadRequest(new { message = "Cena musi być większa niż 0" });
 
-            // Get stock (case-insensitive). If missing, create a minimal placeholder so user can trade.
-            var symbolNormalized = (request.Symbol ?? string.Empty).Trim();
-            var stock = _context.Stocks
-                .FirstOrDefault(s => s.Symbol.ToUpper() == symbolNormalized.ToUpper());
+            // Normalize symbol
+            var symbolNormalized = (request.Symbol ?? string.Empty).Trim().ToUpper();
 
-            if (stock == null)
-            {
-                // Create a minimal stock record using provided price so transactions can proceed
-                stock = new Stock
-                {
-                    Symbol = symbolNormalized.ToUpper(),
-                    Name = symbolNormalized.ToUpper(),
-                    CurrentPrice = request.Price,
-                    OpenPrice = request.Price,
-                    ClosePrice = request.Price,
-                    UpdatedAt = DateTime.UtcNow,
-                };
-                _context.Stocks.Add(stock);
-            }
+            if (string.IsNullOrWhiteSpace(symbolNormalized))
+                return BadRequest(new { message = "Symbol jest wymagany" });
 
             decimal totalValue = request.Quantity * request.Price;
 
@@ -94,8 +80,8 @@ public class TransactionController : ControllerBase
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                Symbol = symbolNormalized.ToUpper(),
-                Name = stock.Name,
+                Symbol = symbolNormalized,
+                Name = request.Name ?? symbolNormalized,
                 Type = request.Type == "buy" ? TransactionType.Buy : TransactionType.Sell,
                 Quantity = request.Quantity,
                 Price = request.Price,
@@ -124,8 +110,8 @@ public class TransactionController : ControllerBase
                     {
                         Id = Guid.NewGuid(),
                         UserId = userId,
-                        Symbol = symbolNormalized.ToUpper(),
-                        Name = stock.Name,
+                        Symbol = symbolNormalized,
+                        Name = request.Name ?? symbolNormalized,
                         Quantity = request.Quantity,
                         AvgPrice = request.Price,
                         StopLoss = request.StopLoss
@@ -250,6 +236,7 @@ public class TransactionController : ControllerBase
 public class CreateTransactionRequest
 {
     public string Symbol { get; set; } = string.Empty;
+    public string? Name { get; set; }
     public int Quantity { get; set; }
     public decimal Price { get; set; }
     public string Type { get; set; } = string.Empty; // "buy" or "sell"

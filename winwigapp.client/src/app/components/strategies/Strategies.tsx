@@ -11,19 +11,7 @@ import {
   BarChart,
 } from "lucide-react";
 import { toast } from "sonner";
-
-interface Strategy {
-  id: string;
-  name: string;
-  targetReturn: number;
-  investmentHorizon: number;
-  rsiLow: number;
-  rsiHigh: number;
-  macdBuy: boolean;
-  sma50Above200: boolean;
-  isActive: boolean;
-  createdAt: string;
-}
+import { strategiesApi, StrategyResponse as Strategy } from "../../utils/strategiesApi";
 
 export function Strategies() {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
@@ -43,12 +31,17 @@ export function Strategies() {
     loadStrategies();
   }, []);
 
-  const loadStrategies = () => {
-    const data = JSON.parse(localStorage.getItem("strategies") || "[]");
-    setStrategies(data);
+  const loadStrategies = async () => {
+    try {
+      const data = await strategiesApi.getStrategies();
+      setStrategies(data);
+    } catch (error) {
+      console.error("Error loading strategies:", error);
+      toast.error("Nie udało się załadować strategii");
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
@@ -71,35 +64,8 @@ export function Strategies() {
       return;
     }
 
-    // TODO: Replace with API call to ASP.NET backend
-    // const response = await fetch('/api/strategies', {
-    //   method: editingStrategy ? 'PUT' : 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     'Authorization': `Bearer ${localStorage.getItem('token')}`
-    //   },
-    //   body: JSON.stringify({...formData, id: editingStrategy?.id})
-    // });
-
-    if (editingStrategy) {
-      const updated = strategies.map((s) =>
-        s.id === editingStrategy.id
-          ? {
-              ...s,
-              ...formData,
-              targetReturn,
-              investmentHorizon,
-              rsiLow,
-              rsiHigh,
-            }
-          : s
-      );
-      setStrategies(updated);
-      localStorage.setItem("strategies", JSON.stringify(updated));
-      toast.success("Zaktualizowano strategię");
-    } else {
-      const newStrategy: Strategy = {
-        id: Date.now().toString(),
+    try {
+      const requestData = {
         name: formData.name,
         targetReturn,
         investmentHorizon,
@@ -107,16 +73,23 @@ export function Strategies() {
         rsiHigh,
         macdBuy: formData.macdBuy,
         sma50Above200: formData.sma50Above200,
-        isActive: false,
-        createdAt: new Date().toISOString(),
       };
-      const updated = [newStrategy, ...strategies];
-      setStrategies(updated);
-      localStorage.setItem("strategies", JSON.stringify(updated));
-      toast.success("Utworzono strategię");
-    }
 
-    resetForm();
+      if (editingStrategy) {
+        await strategiesApi.updateStrategy(editingStrategy.id, requestData);
+        toast.success("Zaktualizowano strategię");
+      } else {
+        const newStrategy = await strategiesApi.createStrategy(requestData);
+        setStrategies([newStrategy, ...strategies]);
+        toast.success("Utworzono strategię");
+      }
+
+      resetForm();
+      await loadStrategies();
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error(error instanceof Error ? error.message : "Błąd podczas zapisywania strategii");
+    }
   };
 
   const resetForm = () => {
@@ -147,25 +120,32 @@ export function Strategies() {
     setShowModal(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Czy na pewno chcesz usunąć tę strategię?")) {
-      const updated = strategies.filter((s) => s.id !== id);
-      setStrategies(updated);
-      localStorage.setItem("strategies", JSON.stringify(updated));
-      toast.success("Usunięto strategię");
+      try {
+        await strategiesApi.deleteStrategy(id);
+        const updated = strategies.filter((s) => s.id !== id);
+        setStrategies(updated);
+        toast.success("Usunięto strategię");
+      } catch (error) {
+        console.error("Error deleting strategy:", error);
+        toast.error(error instanceof Error ? error.message : "Błąd podczas usuwania strategii");
+      }
     }
   };
 
-  const toggleActive = (id: string) => {
-    const updated = strategies.map((s) =>
-      s.id === id ? { ...s, isActive: !s.isActive } : s
-    );
-    setStrategies(updated);
-    localStorage.setItem("strategies", JSON.stringify(updated));
-    const strategy = updated.find((s) => s.id === id);
-    toast.success(
-      strategy?.isActive ? "Aktywowano strategię" : "Dezaktywowano strategię"
-    );
+  const toggleActive = async (id: string) => {
+    try {
+      const response = await strategiesApi.toggleStrategy(id);
+      const updated = strategies.map((s) =>
+        s.id === id ? { ...s, isActive: response.isActive } : s
+      );
+      setStrategies(updated);
+      toast.success(response.message);
+    } catch (error) {
+      console.error("Error toggling strategy:", error);
+      toast.error(error instanceof Error ? error.message : "Błąd podczas przełączania strategii");
+    }
   };
 
   return (

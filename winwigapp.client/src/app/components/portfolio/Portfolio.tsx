@@ -201,10 +201,20 @@ export function Portfolio() {
     }
   };
 
-  const totalValue = portfolio.totalValue;
-  const totalInvested = portfolio.totalInvested;
-  const totalProfit = portfolio.totalProfit;
-  const totalProfitPercent = portfolio.totalProfitPercent;
+  // Calculate totals based on current stock prices (real-time updates)
+  let totalValue = 0;
+  let totalInvested = 0;
+
+  portfolio.items.forEach((item) => {
+    const stock = stocks.find((s) => s.symbol === item.symbol);
+    if (stock) {
+      totalValue += stock.currentPrice * item.quantity;
+    }
+    totalInvested += item.avgPrice * item.quantity;
+  });
+
+  const totalProfit = totalValue - totalInvested;
+  const totalProfitPercent = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
 
   return (
     <div className="space-y-6">

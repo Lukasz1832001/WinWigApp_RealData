@@ -41,9 +41,6 @@ public class PortfolioController : ControllerBase
                 .Where(p => p.UserId == userId)
                 .ToList();
 
-            // Pobranie aktualnych cen akcji
-            var stocks = _context.Stocks.ToList();
-
             // Mapowanie na DTO
             var items = portfolioItems.Select(p => new PortfolioItemResponse
             {
@@ -60,14 +57,11 @@ public class PortfolioController : ControllerBase
 
             foreach (var item in items)
             {
-                var stock = stocks.FirstOrDefault(s => s.Symbol == item.Symbol);
-                if (stock != null)
-                {
-                    totalValue += stock.CurrentPrice * item.Quantity;
-                }
                 totalInvested += item.AvgPrice * item.Quantity;
             }
 
+            // Note: totalValue cannot be calculated without current prices
+            // Client should fetch current prices from /api/stocks and calculate based on Portfolio data
             var totalProfit = totalValue - totalInvested;
             var totalProfitPercent = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
 

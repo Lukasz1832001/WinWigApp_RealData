@@ -21,5 +21,4 @@ public class Transaction
 
     // Foreign keys and navigation properties
     public User User { get; set; } = null!;
-    public Stock Stock { get; set; } = null!;
 }

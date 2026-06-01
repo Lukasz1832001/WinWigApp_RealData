@@ -15,6 +15,7 @@ builder.Services.AddDbContext<WinWigDbContext>(options =>
 // Register services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<ISeederService, SeederService>();
 builder.Services.AddHttpClient<IYahooFinanceClient, YahooFinanceClient>(client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (compatible; WinWigApp/1.0)");
@@ -22,6 +23,7 @@ builder.Services.AddHttpClient<IYahooFinanceClient, YahooFinanceClient>(client =
 });
 builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IStrategyService, StrategyService>();
 
 
 // Configure JWT Authentication
