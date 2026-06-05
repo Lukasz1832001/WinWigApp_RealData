@@ -1,6 +1,7 @@
 using WinWigApp.Server.Data;
 using WinWigApp.Server.DTOs;
 using WinWigApp.Server.Models;
+using AutoMapper;
 
 namespace WinWigApp.Server.Services;
 
@@ -9,12 +10,14 @@ public class AuthService : IAuthService
     private readonly WinWigDbContext _context;
     private readonly ITokenService _tokenService;
     private readonly ISeederService _seederService;
+    private readonly IMapper _mapper;
 
-    public AuthService(WinWigDbContext context, ITokenService tokenService, ISeederService seederService)
+    public AuthService(WinWigDbContext context, ITokenService tokenService, ISeederService seederService, IMapper mapper)
     {
         _context = context;
         _tokenService = tokenService;
         _seederService = seederService;
+        _mapper = mapper;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -47,14 +50,7 @@ public class AuthService : IAuthService
         return new AuthResponse
         {
             Token = token,
-            User = new UserResponse
-            {
-                Id = user.Id,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                Email = user.Email,
-                Balance = user.Balance
-            }
+            User = _mapper.Map<UserResponse>(user)
         };
     }
 
@@ -74,14 +70,7 @@ public class AuthService : IAuthService
         return new AuthResponse
         {
             Token = token,
-            User = new UserResponse
-            {
-                Id = user.Id,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                Email = user.Email,
-                Balance = user.Balance
-            }
+            User = _mapper.Map<UserResponse>(user)
         };
     }
 }

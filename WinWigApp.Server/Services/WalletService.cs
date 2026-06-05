@@ -1,16 +1,18 @@
 using WinWigApp.Server.Data;
 using WinWigApp.Server.DTOs;
+using AutoMapper;
 
 namespace WinWigApp.Server.Services;
-
 
 public class WalletService : IWalletService
 {
     private readonly WinWigDbContext _context;
+    private readonly IMapper _mapper;
 
-    public WalletService(WinWigDbContext context)
+    public WalletService(WinWigDbContext context, IMapper mapper)
     {
         _context = context;
+        _mapper = mapper;
     }
 
     public async Task<DepositResponse> DepositAsync(Guid userId, DepositRequest request)
@@ -43,14 +45,9 @@ public class WalletService : IWalletService
         _context.Deposits.Add(deposit);
         await _context.SaveChangesAsync();
 
-        return new DepositResponse
-        {
-            Id = deposit.Id.ToString(),
-            Amount = request.Amount,
-            Method = request.Method,
-            Timestamp = deposit.Timestamp,
-            NewBalance = user.Balance
-        };
+        var response = _mapper.Map<DepositResponse>(deposit);
+        response.NewBalance = user.Balance;
+        return response;
     }
 
     public async Task<List<DepositsResponse>> GetDepositsAsync(Guid userId)
@@ -60,13 +57,7 @@ public class WalletService : IWalletService
             .OrderByDescending(d => d.Timestamp)
             .ToList();
 
-        return deposits.Select(d => new DepositsResponse
-        {
-            Id = d.Id.ToString(),
-            Amount = d.Amount,
-            Method = d.Method,
-            Timestamp = d.Timestamp
-        }).ToList();
+        return _mapper.Map<List<DepositsResponse>>(deposits);
     }
 
     public async Task<BalanceResponse> GetBalanceAsync(Guid userId)

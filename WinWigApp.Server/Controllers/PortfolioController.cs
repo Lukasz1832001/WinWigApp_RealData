@@ -4,6 +4,7 @@ using System.Security.Claims;
 using WinWigApp.Server.Data;
 using WinWigApp.Server.DTOs;
 using System.Linq;
+using AutoMapper;
 
 namespace WinWigApp.Server.Controllers;
 
@@ -14,11 +15,13 @@ public class PortfolioController : ControllerBase
 {
     private readonly WinWigDbContext _context;
     private readonly ILogger<PortfolioController> _logger;
+    private readonly IMapper _mapper;
 
-    public PortfolioController(WinWigDbContext context, ILogger<PortfolioController> logger)
+    public PortfolioController(WinWigDbContext context, ILogger<PortfolioController> logger, IMapper mapper)
     {
         _context = context;
         _logger = logger;
+        _mapper = mapper;
     }
 
     private Guid GetUserId()
@@ -42,14 +45,7 @@ public class PortfolioController : ControllerBase
                 .ToList();
 
             // Mapowanie na DTO
-            var items = portfolioItems.Select(p => new PortfolioItemResponse
-            {
-                Symbol = p.Symbol,
-                Name = p.Name,
-                Quantity = p.Quantity,
-                AvgPrice = p.AvgPrice,
-                StopLoss = p.StopLoss
-            }).ToList();
+            var items = _mapper.Map<List<PortfolioItemResponse>>(portfolioItems);
 
             // Obliczanie wartości portfela
             decimal totalValue = 0;

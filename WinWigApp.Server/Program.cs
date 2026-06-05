@@ -7,6 +7,7 @@ using WinWigApp.Server.Middleware;
 using WinWigApp.Server.Filters;
 using FluentValidation;
 using WinWigApp.Server.Validators;
+using WinWigApp.Server.Mapping;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +32,9 @@ builder.Services.AddScoped<IStrategyService, StrategyService>();
 
 // Register FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
+
+// Register AutoMapper
+builder.Services.AddAutoMapper(typeof(MappingProfile));
 
 // Configure JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"];

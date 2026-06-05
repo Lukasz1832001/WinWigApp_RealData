@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using AutoMapper;
 using WinWigApp.Server.Data;
 using WinWigApp.Server.DTOs;
 using WinWigApp.Server.Models;
@@ -9,11 +10,13 @@ public class StrategyService : IStrategyService
 {
     private readonly WinWigDbContext _context;
     private readonly ILogger<StrategyService> _logger;
+    private readonly IMapper _mapper;
 
-    public StrategyService(WinWigDbContext context, ILogger<StrategyService> logger)
+    public StrategyService(WinWigDbContext context, ILogger<StrategyService> logger, IMapper mapper)
     {
         _context = context;
         _logger = logger;
+        _mapper = mapper;
     }
 
     public async Task<StrategyResponse> CreateStrategyAsync(Guid userId, CreateStrategyRequest request)
@@ -42,7 +45,7 @@ public class StrategyService : IStrategyService
 
             _logger.LogInformation("Strategy {StrategyId} created for user {UserId}", strategy.Id, userId);
 
-            return MapToResponse(strategy);
+            return _mapper.Map<StrategyResponse>(strategy);
         }
         catch (Exception ex)
         {
@@ -60,7 +63,7 @@ public class StrategyService : IStrategyService
                 .OrderByDescending(s => s.CreatedAt)
                 .ToListAsync();
 
-            return strategies.Select(MapToResponse).ToList();
+            return _mapper.Map<List<StrategyResponse>>(strategies);
         }
         catch (Exception ex)
         {
@@ -77,7 +80,7 @@ public class StrategyService : IStrategyService
                 .FirstOrDefaultAsync(s => s.Id == strategyId && s.UserId == userId)
                 ?? throw new InvalidOperationException("Strategia nie znaleziona");
 
-            return MapToResponse(strategy);
+            return _mapper.Map<StrategyResponse>(strategy);
         }
         catch (Exception ex)
         {
@@ -196,22 +199,5 @@ public class StrategyService : IStrategyService
 
         if (request.RsiLow >= request.RsiHigh)
             throw new InvalidOperationException("RSI niski musi być mniejszy niż RSI wysoki");
-    }
-
-    private static StrategyResponse MapToResponse(Strategy strategy)
-    {
-        return new StrategyResponse
-        {
-            Id = strategy.Id,
-            Name = strategy.Name,
-            TargetReturn = strategy.TargetReturn,
-            InvestmentHorizon = strategy.InvestmentHorizon,
-            RsiLow = strategy.RsiLow,
-            RsiHigh = strategy.RsiHigh,
-            MacdBuy = strategy.MacdBuy,
-            Sma50Above200 = strategy.Sma50Above200,
-            IsActive = strategy.IsActive,
-            CreatedAt = strategy.CreatedAt
-        };
     }
 }
