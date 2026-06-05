@@ -3,17 +3,46 @@ import { useNavigate, Link } from "react-router";
 import { LogIn } from "lucide-react";
 import { useUser } from "../../context/UserContext";
 
+interface ValidationErrors {
+  [key: string]: string[];
+}
+
 export function Login() {
   const navigate = useNavigate();
   const { setUser } = useUser();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  const validateForm = (): boolean => {
+    const errors: ValidationErrors = {};
+
+    // Email validation
+    if (!email.trim()) {
+      errors.email = ["Email jest wymagany"];
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = ["Email musi być prawidłowy"];
+    }
+
+    // Password validation
+    if (!password) {
+      errors.password = ["Hasło jest wymagane"];
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -25,6 +54,13 @@ export function Login() {
 
       if (!response.ok) {
         const errorData = await response.json();
+
+        // Handle validation errors from backend
+        if (errorData.type === "ValidationError" && errorData.errors) {
+          setValidationErrors(errorData.errors);
+          return;
+        }
+
         throw new Error(errorData.message || 'Logowanie nie powiodło się');
       }
 
@@ -41,6 +77,26 @@ export function Login() {
       setError(err instanceof Error ? err.message : "Błąd podczas logowania");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    if (validationErrors.email) {
+      setValidationErrors({
+        ...validationErrors,
+        email: []
+      });
+    }
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    if (validationErrors.password) {
+      setValidationErrors({
+        ...validationErrors,
+        password: []
+      });
     }
   };
 
@@ -76,12 +132,18 @@ export function Login() {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                onChange={handleEmailChange}
+                className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-colors ${
+                  validationErrors.email
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    : "border-gray-700 focus:border-emerald-500 focus:ring-emerald-500"
+                }`}
                 placeholder="twoj@email.com"
-                required
                 disabled={isLoading}
               />
+              {validationErrors.email && (
+                <p className="text-red-500 text-sm mt-1">{validationErrors.email[0]}</p>
+              )}
             </div>
 
             <div>
@@ -92,12 +154,18 @@ export function Login() {
                 id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                onChange={handlePasswordChange}
+                className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-colors ${
+                  validationErrors.password
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    : "border-gray-700 focus:border-emerald-500 focus:ring-emerald-500"
+                }`}
                 placeholder="••••••••"
-                required
                 disabled={isLoading}
               />
+              {validationErrors.password && (
+                <p className="text-red-500 text-sm mt-1">{validationErrors.password[0]}</p>
+              )}
             </div>
 
             <button

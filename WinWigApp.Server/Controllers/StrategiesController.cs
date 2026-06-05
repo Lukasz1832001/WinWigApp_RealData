@@ -33,9 +33,6 @@ public class StrategiesController : ControllerBase
     {
         try
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var userId = GetUserId();
             var response = await _strategyService.CreateStrategyAsync(userId, request);
             return CreatedAtAction(nameof(GetStrategy), new { id = response.Id }, response);
@@ -97,9 +94,6 @@ public class StrategiesController : ControllerBase
     {
         try
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var userId = GetUserId();
             var response = await _strategyService.UpdateStrategyAsync(id, userId, request);
             return Ok(response);

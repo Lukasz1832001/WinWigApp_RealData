@@ -3,6 +3,10 @@ import { useNavigate, Link } from "react-router";
 import { UserPlus } from "lucide-react";
 import { useUser } from "../../context/UserContext";
 
+interface ValidationErrors {
+  [key: string]: string[];
+}
+
 export function Register() {
   const navigate = useNavigate();
   const { setUser } = useUser();
@@ -14,19 +18,54 @@ export function Register() {
     confirmPassword: "",
   });
   const [error, setError] = useState("");
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  const validateForm = (): boolean => {
+    const errors: ValidationErrors = {};
+
+    // FirstName validation
+    if (!formData.firstName.trim()) {
+      errors.firstName = ["Imię jest wymagane"];
+    } else if (formData.firstName.length > 100) {
+      errors.firstName = ["Imię nie może być dłuższe niż 100 znaków"];
+    }
+
+    // LastName validation
+    if (!formData.lastName.trim()) {
+      errors.lastName = ["Nazwisko jest wymagane"];
+    } else if (formData.lastName.length > 100) {
+      errors.lastName = ["Nazwisko nie może być dłuższe niż 100 znaków"];
+    }
+
+    // Email validation
+    if (!formData.email.trim()) {
+      errors.email = ["Email jest wymagany"];
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = ["Email musi być prawidłowy"];
+    }
+
+    // Password validation
+    if (!formData.password) {
+      errors.password = ["Hasło jest wymagane"];
+    } else if (formData.password.length < 8) {
+      errors.password = ["Hasło musi mieć minimum 8 znaków"];
+    }
+
+    // Confirm password validation
+    if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = ["Hasła nie są identyczne"];
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Hasła nie są identyczne");
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      setError("Hasło musi mieć minimum 8 znaków");
+    if (!validateForm()) {
       return;
     }
 
@@ -46,6 +85,13 @@ export function Register() {
 
       if (!response.ok) {
         const errorData = await response.json();
+
+        // Handle validation errors from backend
+        if (errorData.type === "ValidationError" && errorData.errors) {
+          setValidationErrors(errorData.errors);
+          return;
+        }
+
         throw new Error(errorData.message || 'Rejestracja nie powiodła się');
       }
 
@@ -66,10 +112,18 @@ export function Register() {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+    // Clear validation error for this field when user starts typing
+    if (validationErrors[name]) {
+      setValidationErrors({
+        ...validationErrors,
+        [name]: []
+      });
+    }
   };
 
   return (
@@ -107,11 +161,17 @@ export function Register() {
                   type="text"
                   value={formData.firstName}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-colors ${
+                    validationErrors.firstName
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "border-gray-700 focus:border-emerald-500 focus:ring-emerald-500"
+                  }`}
                   placeholder="Jan"
-                  required
                   disabled={isLoading}
                 />
+                {validationErrors.firstName && (
+                  <p className="text-red-500 text-sm mt-1">{validationErrors.firstName[0]}</p>
+                )}
               </div>
 
               <div>
@@ -124,11 +184,17 @@ export function Register() {
                   type="text"
                   value={formData.lastName}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-colors ${
+                    validationErrors.lastName
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "border-gray-700 focus:border-emerald-500 focus:ring-emerald-500"
+                  }`}
                   placeholder="Kowalski"
-                  required
                   disabled={isLoading}
                 />
+                {validationErrors.lastName && (
+                  <p className="text-red-500 text-sm mt-1">{validationErrors.lastName[0]}</p>
+                )}
               </div>
             </div>
 
@@ -142,11 +208,17 @@ export function Register() {
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-colors ${
+                  validationErrors.email
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    : "border-gray-700 focus:border-emerald-500 focus:ring-emerald-500"
+                }`}
                 placeholder="twoj@email.com"
-                required
                 disabled={isLoading}
               />
+              {validationErrors.email && (
+                <p className="text-red-500 text-sm mt-1">{validationErrors.email[0]}</p>
+              )}
             </div>
 
             <div>
@@ -159,11 +231,17 @@ export function Register() {
                 type="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-colors ${
+                  validationErrors.password
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    : "border-gray-700 focus:border-emerald-500 focus:ring-emerald-500"
+                }`}
                 placeholder="••••••••"
-                required
                 disabled={isLoading}
               />
+              {validationErrors.password && (
+                <p className="text-red-500 text-sm mt-1">{validationErrors.password[0]}</p>
+              )}
             </div>
 
             <div>
@@ -176,11 +254,17 @@ export function Register() {
                 type="password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-1 transition-colors ${
+                  validationErrors.confirmPassword
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    : "border-gray-700 focus:border-emerald-500 focus:ring-emerald-500"
+                }`}
                 placeholder="••••••••"
-                required
                 disabled={isLoading}
               />
+              {validationErrors.confirmPassword && (
+                <p className="text-red-500 text-sm mt-1">{validationErrors.confirmPassword[0]}</p>
+              )}
             </div>
 
             <button

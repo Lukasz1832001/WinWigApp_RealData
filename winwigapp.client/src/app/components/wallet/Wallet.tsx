@@ -6,6 +6,7 @@ import {
   Smartphone,
   Plus,
   ArrowUpRight,
+  ArrowDownLeft,
   ArrowDownRight,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +19,10 @@ interface DepositTransaction {
   timestamp: string;
 }
 
+interface ValidationErrors {
+  [key: string]: string[];
+}
+
 export function Wallet() {
   const { updateBalance } = useUser();
   const [balance, setBalance] = useState(0);
@@ -26,6 +31,7 @@ export function Wallet() {
   const [paymentMethod, setPaymentMethod] = useState<"card" | "transfer" | "blik">("card");
   const [deposits, setDeposits] = useState<DepositTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   useEffect(() => {
     loadWalletData();
@@ -80,12 +86,31 @@ export function Wallet() {
     }
   };
 
+  const validateDeposit = (): boolean => {
+    const errors: ValidationErrors = {};
+    const amount = parseFloat(depositAmount);
+
+    if (!depositAmount.trim()) {
+      errors.amount = ["Kwota jest wymagana"];
+    } else if (isNaN(amount) || amount <= 0) {
+      errors.amount = ["Kwota musi być większa niż 0"];
+    } else if (amount > 1_000_000) {
+      errors.amount = ["Kwota nie może być większa niż 1 000 000"];
+    }
+
+    if (!paymentMethod) {
+      errors.method = ["Metoda płatności jest wymagana"];
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationErrors({});
 
-    const amount = parseFloat(depositAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Podaj prawidłową kwotę");
+    if (!validateDeposit()) {
       return;
     }
 
@@ -98,6 +123,7 @@ export function Wallet() {
         return;
       }
 
+      const amount = parseFloat(depositAmount);
       const methodMap: Record<string, string> = {
         card: "card",
         transfer: "transfer",
@@ -118,6 +144,13 @@ export function Wallet() {
 
       if (!response.ok) {
         const error = await response.json();
+
+        // Handle validation errors from backend
+        if (error.type === "ValidationError" && error.errors) {
+          setValidationErrors(error.errors);
+          return;
+        }
+
         throw new Error(error.message || "Nie udało się przetworzyć wpłaty");
       }
 

@@ -1,13 +1,13 @@
-# 📊 Strategie Inwestycyjne - Dokumentacja
+# Strategie Inwestycyjne - Dokumentacja
 
-## 🎯 Jak działają strategie?
+## Jak działają strategie?
 
 ### Ogólne Zasady
 Strategie inwestycyjne to automatyczne reguły, które określają **kiedy kupić** i **kiedy sprzedać** akcje. Każda strategia jest zbudowana na podstawie **wskaźników technicznych**, które analizują historyczne dane cen i wolumenu.
 
 ---
 
-## 📈 Wskaźniki Techniczne Używane w Strategiach
+## Wskaźniki Techniczne Używane w Strategiach
 
 ### 1. **RSI (Relative Strength Index)** - Siła Względna
 **Co to jest?**

@@ -45,7 +45,12 @@ export function Strategies() {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      toast.error("Podaj nazwę strategii");
+      toast.error("Nazwa strategii jest wymagana");
+      return;
+    }
+
+    if (formData.name.length > 100) {
+      toast.error("Nazwa strategii nie może być dłuższa niż 100 znaków");
       return;
     }
 
@@ -54,13 +59,48 @@ export function Strategies() {
     const rsiLow = parseFloat(formData.rsiLow);
     const rsiHigh = parseFloat(formData.rsiHigh);
 
-    if (targetReturn <= 0 || investmentHorizon <= 0 || rsiLow <= 0 || rsiHigh <= 0) {
-      toast.error("Wszystkie wartości muszą być większe od zera");
+    if (isNaN(targetReturn) || targetReturn <= 0) {
+      toast.error("Docelowy zwrot musi być większy niż 0");
       return;
     }
 
-    if (rsiLow >= rsiHigh) {
-      toast.error("RSI niski musi być mniejszy niż RSI wysoki");
+    if (targetReturn > 1000) {
+      toast.error("Docelowy zwrot nie może być większy niż 1000%");
+      return;
+    }
+
+    if (isNaN(investmentHorizon) || investmentHorizon <= 0) {
+      toast.error("Horyzont inwestycyjny musi być większy niż 0");
+      return;
+    }
+
+    if (investmentHorizon > 3650) {
+      toast.error("Horyzont inwestycyjny nie może być większy niż 3650 dni (10 lat)");
+      return;
+    }
+
+    if (isNaN(rsiLow) || rsiLow < 0) {
+      toast.error("RSI Low musi być >= 0");
+      return;
+    }
+
+    if (rsiLow > 100) {
+      toast.error("RSI Low musi być <= 100");
+      return;
+    }
+
+    if (isNaN(rsiHigh) || rsiHigh < 0) {
+      toast.error("RSI High musi być >= 0");
+      return;
+    }
+
+    if (rsiHigh > 100) {
+      toast.error("RSI High musi być <= 100");
+      return;
+    }
+
+    if (rsiHigh > 0 && rsiLow >= rsiHigh) {
+      toast.error("RSI Low musi być mniejszy niż RSI High");
       return;
     }
 

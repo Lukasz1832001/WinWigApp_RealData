@@ -3,6 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using WinWigApp.Server.Data;
 using WinWigApp.Server.Services;
+using WinWigApp.Server.Middleware;
+using WinWigApp.Server.Filters;
+using FluentValidation;
+using WinWigApp.Server.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +29,8 @@ builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IStrategyService, StrategyService>();
 
+// Register FluentValidation
+builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 
 // Configure JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"];
@@ -64,7 +70,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ValidationFilter>();
+})
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -73,6 +82,9 @@ builder.Services.AddControllers()
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Add exception handling middleware
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Initialize database
 using (var scope = app.Services.CreateScope())

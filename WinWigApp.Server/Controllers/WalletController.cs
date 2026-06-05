@@ -33,9 +33,6 @@ public class WalletController : ControllerBase
     {
         try
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var userId = GetUserId();
             var response = await _walletService.DepositAsync(userId, request);
             return Ok(response);

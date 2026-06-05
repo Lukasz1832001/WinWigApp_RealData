@@ -100,9 +100,6 @@ public class PortfolioController : ControllerBase
             if (string.IsNullOrWhiteSpace(symbol))
                 return BadRequest(new { message = "Symbol jest wymagany" });
 
-            if (request.StopLoss <= 0)
-                return BadRequest(new { message = "Stop loss musi być większy niż 0" });
-
             _logger.LogInformation("Updating stop loss for symbol: {Symbol}, userId: {UserId}, newStopLoss: {StopLoss}", symbol, userId, request.StopLoss);
 
             // Find portfolio position
